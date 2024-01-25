@@ -1,0 +1,299 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.24.24.22086",
+      "templateHash": "3392008979846851127"
+    }
+  },
+  "parameters": {
+    "adminUsername": {
+      "type": "string",
+      "metadata": {
+        "description": "Username for the Virtual Machine."
+      }
+    },
+    "adminPassword": {
+      "type": "securestring",
+      "minLength": 12,
+      "metadata": {
+        "description": "Password for the Virtual Machine."
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "defaultValue": "TriffyTestVault",
+      "allowedValues": [
+        "TriffyTestVault"
+      ],
+      "metadata": {
+        "description": "Name of the key vault where the admin password will be stored"
+      }
+    },
+    "publicIPAllocationMethod": {
+      "type": "string",
+      "defaultValue": "Dynamic",
+      "allowedValues": [
+        "Dynamic",
+        "Static"
+      ],
+      "metadata": {
+        "description": "Allocation method for the Public IP used to access the Virtual Machine."
+      }
+    },
+    "publicIpSku": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "allowedValues": [
+        "Basic",
+        "Standard"
+      ],
+      "metadata": {
+        "description": "SKU for the Public IP used to access the Virtual Machine."
+      }
+    },
+    "OSVersion": {
+      "type": "string",
+      "allowedValues": [
+        "2022-datacenter-azure-edition",
+        "2022-datacenter-azure-edition-core",
+        "2022-datacenter-azure-edition-core-smalldisk",
+        "2022-datacenter-azure-edition-smalldisk",
+        "2022-datacenter-core-g2",
+        "2022-datacenter-core-smalldisk-g2",
+        "2022-datacenter-g2",
+        "2022-datacenter-smalldisk-g2",
+        "win11-22h2-pro"
+      ],
+      "metadata": {
+        "description": "The Windows version for the VM. This will pick a fully patched image of this given Windows version."
+      }
+    },
+    "vmSize": {
+      "type": "string",
+      "defaultValue": "Standard_D4s_v3",
+      "allowedValues": [
+        "Standard_D2s_v3",
+        "Standard_D4s_v3",
+        "Standard_D8s_v3"
+      ],
+      "metadata": {
+        "description": "Size of the virtual machine."
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "vmName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the virtual machine."
+      }
+    },
+    "networkRG": {
+      "type": "string",
+      "allowedValues": [
+        "RG-Network"
+      ],
+      "metadata": {
+        "description": "Name of the resource group where the VNET and subnet are located"
+      }
+    },
+    "virtualNetworkName": {
+      "type": "string",
+      "allowedValues": [
+        "VNET-Main"
+      ],
+      "metadata": {
+        "description": "Name of the VNET which is the parent of the subnet to which the VM will connect to"
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "allowedValues": [
+        "VirtualMachines"
+      ],
+      "metadata": {
+        "description": "Name of the subnet to which the VM will be connected"
+      }
+    },
+    "securityType": {
+      "type": "string",
+      "defaultValue": "Standard",
+      "allowedValues": [
+        "Standard",
+        "TrustedLaunch"
+      ],
+      "metadata": {
+        "description": "Security Type of the Virtual Machine."
+      }
+    }
+  },
+  "variables": {
+    "dnsLabelPrefix": "[toLower(format('{0}', parameters('vmName')))]",
+    "publicIpName": "[toLower(format('{0}-PubIP', parameters('vmName')))]",
+    "keyVaultSecretName": "[toLower(format('{0}AdminSecret', parameters('vmName')))]",
+    "tempVmComputerName": "[substring(parameters('vmName'), 0, 13)]",
+    "tempVmComputerNumber": "[substring(parameters('vmName'), sub(length(parameters('vmName')), 2))]",
+    "vmComputerName": "[format('{0}{1}', variables('tempVmComputerName'), variables('tempVmComputerNumber'))]",
+    "storageAccountName": "[format('bootdiags{0}', uniqueString(resourceGroup().id))]",
+    "nicName": "[toLower(format('{0}-NIC', parameters('vmName')))]",
+    "securityProfileJson": {
+      "uefiSettings": {
+        "secureBootEnabled": true,
+        "vTpmEnabled": true
+      },
+      "securityType": "[parameters('securityType')]"
+    },
+    "extensionName": "GuestAttestation",
+    "extensionPublisher": "Microsoft.Azure.Security.WindowsAttestation",
+    "extensionVersion": "1.0",
+    "maaTenantName": "GuestAttestation",
+    "maaEndpoint": "[substring('emptyString', 0, 0)]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2022-05-01",
+      "name": "[variables('storageAccountName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard_LRS"
+      },
+      "kind": "Storage"
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2022-05-01",
+      "name": "[variables('publicIpName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "[parameters('publicIpSku')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "[parameters('publicIPAllocationMethod')]",
+        "dnsSettings": {
+          "domainNameLabel": "[variables('dnsLabelPrefix')]"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2022-05-01",
+      "name": "[variables('nicName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+              },
+              "subnet": {
+                "id": "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, parameters('networkRG')), 'Microsoft.Network/virtualNetworks/subnets', parameters('virtualNetworkName'), parameters('subnetName'))]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2022-03-01",
+      "name": "[parameters('vmName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('vmSize')]"
+        },
+        "osProfile": {
+          "computerName": "[variables('vmComputerName')]",
+          "adminUsername": "[parameters('adminUsername')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "microsoftwindowsdesktop",
+            "offer": "windows-11",
+            "sku": "[parameters('OSVersion')]",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "StandardSSD_LRS"
+            }
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
+            }
+          ]
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[reference(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName')), '2022-05-01').primaryEndpoints.blob]"
+          }
+        },
+        "securityProfile": "[if(equals(parameters('securityType'), 'TrustedLaunch'), variables('securityProfileJson'), null())]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', variables('storageAccountName'))]"
+      ]
+    },
+    {
+      "condition": "[and(equals(parameters('securityType'), 'TrustedLaunch'), and(equals(variables('securityProfileJson').uefiSettings.secureBootEnabled, true()), equals(variables('securityProfileJson').uefiSettings.vTpmEnabled, true())))]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2022-03-01",
+      "name": "[format('{0}/{1}', parameters('vmName'), variables('extensionName'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "[variables('extensionPublisher')]",
+        "type": "[variables('extensionName')]",
+        "typeHandlerVersion": "[variables('extensionVersion')]",
+        "autoUpgradeMinorVersion": true,
+        "enableAutomaticUpgrade": true,
+        "settings": {
+          "AttestationConfig": {
+            "MaaSettings": {
+              "maaEndpoint": "[variables('maaEndpoint')]",
+              "maaTenantName": "[variables('maaTenantName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', parameters('vmName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.KeyVault/vaults/secrets",
+      "apiVersion": "2023-07-01",
+      "name": "[format('{0}/{1}', parameters('keyVaultName'), variables('keyVaultSecretName'))]",
+      "properties": {
+        "value": "[parameters('adminPassword')]"
+      }
+    }
+  ],
+  "outputs": {
+    "hostname": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Network/publicIPAddresses', variables('publicIpName')), '2022-05-01').dnsSettings.fqdn]"
+    }
+  }
+}
