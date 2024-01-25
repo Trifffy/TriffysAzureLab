@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.24.24.22086",
-      "templateHash": "3392008979846851127"
+      "templateHash": "18148381168904397221"
     }
   },
   "parameters": {
@@ -98,6 +98,7 @@
     },
     "networkRG": {
       "type": "string",
+      "defaultValue": "RG-Network",
       "allowedValues": [
         "RG-Network"
       ],
@@ -133,10 +134,16 @@
       "metadata": {
         "description": "Security Type of the Virtual Machine."
       }
+    },
+    "dnsLabelPrefix": {
+      "type": "string",
+      "defaultValue": "[toLower(format('{0}', parameters('vmName')))]",
+      "metadata": {
+        "description": "Unique DNS Name for the Public IP used to access the Virtual Machine"
+      }
     }
   },
   "variables": {
-    "dnsLabelPrefix": "[toLower(format('{0}', parameters('vmName')))]",
     "publicIpName": "[toLower(format('{0}-PubIP', parameters('vmName')))]",
     "keyVaultSecretName": "[toLower(format('{0}AdminSecret', parameters('vmName')))]",
     "tempVmComputerName": "[substring(parameters('vmName'), 0, 13)]",
@@ -179,7 +186,7 @@
       "properties": {
         "publicIPAllocationMethod": "[parameters('publicIPAllocationMethod')]",
         "dnsSettings": {
-          "domainNameLabel": "[variables('dnsLabelPrefix')]"
+          "domainNameLabel": "[parameters('dnsLabelPrefix')]"
         }
       }
     },
