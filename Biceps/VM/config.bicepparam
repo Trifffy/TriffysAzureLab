@@ -1,4 +1,4 @@
-using './main.bicep'
+using './deployVMasModule.bicep'
 
 @description('Name of the resource group')
 param rgName = 'RG-StacksTest'
