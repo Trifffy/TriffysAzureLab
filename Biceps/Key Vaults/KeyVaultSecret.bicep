@@ -1,14 +1,10 @@
 @description('Name of the key vault where the admin password will be stored')
-@allowed([
-  'TriffyMainVault'
-])
-param keyVaultName string = 'TriffyMainVault'
+param keyVaultName string
 
 @description('Key vault secret name')
 param keyVaultSecretName string
 
 @description('Password for the Virtual Machine.')
-@minLength(12)
 @secure()
 param adminPassword string
 

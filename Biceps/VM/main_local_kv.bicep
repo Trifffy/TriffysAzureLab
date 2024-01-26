@@ -12,12 +12,6 @@ param adminPassword string
 ])
 param keyVaultName string = 'TriffyTestVault'
 
-@description('Name of the resource group where the key vault is located')
-@allowed([
-  'RG-Management'
-])
-param keyVaultRG string = 'RG-Management'
-
 @description('Allocation method for the Public IP used to access the Virtual Machine.')
 @allowed([
   'Dynamic'
@@ -226,13 +220,15 @@ resource vmExtension 'Microsoft.Compute/virtualMachines/extensions@2022-03-01' =
   }
 }
 
-module kv '../Key Vaults/KeyVaultSecret.bicep' = {
-  name: 'keyVault'
-  scope: resourceGroup(keyVaultRG)
-  params: {
-    keyVaultName: keyVaultName
-    keyVaultSecretName: keyVaultSecretName
-    adminPassword: adminPassword
+resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+}
+
+resource keyVaultSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  name: keyVaultSecretName
+  parent: keyVault
+  properties: {
+    value: adminPassword
   }
 }
 
