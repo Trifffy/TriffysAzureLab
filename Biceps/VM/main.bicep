@@ -8,9 +8,9 @@ param adminPassword string
 
 @description('Name of the key vault where the admin password will be stored')
 @allowed([
-  'TriffyTestVault'
+  'TriffyMainVault'
 ])
-param keyVaultName string = 'TriffyTestVault'
+param keyVaultName string = 'TriffyMainVault'
 
 @description('Name of the resource group where the key vault is located')
 @allowed([
